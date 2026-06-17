@@ -21,7 +21,7 @@ I took that exact hash and fed it directly into PicoSecure's **Manage Hashes** b
 ![Hash Manager Blocklist Rule](Images/lab_screenshot_6.png)
 
 ### 4. The Real-World Lesson
-Hashes are highly precise, but they are fragile. Think of it like a barcode; if the attacker modifies just one tiny bit of code and recompiles it, the file gets a completely new hash. That’s why static blocks are easy to bypass—the attacker just swapped the build and walked right past the rule.
+Hashes are highly precise, but they are fragile. Think of it like a barcode; if the attacker modifies just one tiny bit of code and recompiles it, the file gets a completely new hash. That’s why static blocks are easy to bypass; the attacker just swapped the build and walked right past the rule.
 
 ---
 
