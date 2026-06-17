@@ -13,12 +13,12 @@ The adversary executed a malicious binary named `sample1.exe`.
 I focused on the cryptographic signature of the file since file names are easily changed:
 * **SHA256 Hash:** `9c550591a25c6228cb7d74d970d133d75c961ffed2ef7180144859cc09efca8c`
 
-![Malware Sandbox Analysis Report for Sample 1](path/to/sample1_sandbox_screenshot.png)
+![Malware Sandbox Analysis Report for Sample 1](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_16_35 PM.png)
 
 ### 3. Implementation
 I utilized the **Manage Hashes** tool in PicoSecure to block the signature, neutralizing execution.
 
-![Hash Manager Blocklist Rule](path/to/sample1_hash_block_screenshot.png)
+![Hash Manager Blocklist Rule](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_24_49 PM.png)
 
 ### 4. The Real-World Lesson
 While hashes are precise, they are fragile. The attacker altered a single bit and recompiled the code, generating an entirely new hash signature that bypassed the static rule.
@@ -34,7 +34,7 @@ The adversary deployed `sample2.exe` with a modified signature, rendering the pr
 I analyzed live runtime telemetry in the sandbox to look for outbound network infrastructure indicators:
 * **Malicious Destination:** `154.35.10.113:4444`
 
-![Malware Sandbox Network Activity and Connections for Sample 2](path/to/sample2_network_telemetry_screenshot.png)
+![Malware Sandbox Network Activity and Connections for Sample 2](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_27_55 PM.png)
 
 ### 3. Implementation
 I configured a network-level block inside the **Firewall Rule Manager**:
@@ -43,7 +43,7 @@ I configured a network-level block inside the **Firewall Rule Manager**:
 * **Destination IP:** `154.35.10.113`
 * **Action:** Deny
 
-![Firewall Rule Configuration](path/to/sample2_firewall_rule_screenshot.png)
+![Firewall Rule Configuration](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_37_08 PM.png)
 
 ### 4. The Real-World Lesson
 Moving up the Pyramid of Pain to network indicators creates a more resilient defense; the malware remains blocked regardless of signature changes as long as it phones home to that IP.
@@ -59,14 +59,14 @@ The adversary bypassed the firewall block by deploying `sample3.exe`, dynamicall
 Instead of playing whack-a-mole with shifting IPs, I targeted the underlying DNS resolution network indicator:
 * **Malicious Domain:** `emudyn.bresonicz.info`
 
-![Sandbox DNS Requests Telemetry for Sample 3](path/to/sample3_dns_telemetry_screenshot.png)
+![Sandbox DNS Requests Telemetry for Sample 3](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_41_22 PM.png)
 
 ### 3. Implementation
 I applied a centralized domain-filtering block inside the **DNS Rule Manager**:
 * **Domain Name:** `emudyn.bresonicz.info`
 * **Action:** Deny
 
-![DNS Rule Manager Blocked Domain](path/to/sample3_dns_block_screenshot.png)
+![DNS Rule Manager Blocked Domain](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 8_44_39 PM.png)
 
 ### 4. The Real-World Lesson
 Domains sit higher on the pyramid because forcing an attacker to re-register infrastructure and update code increases their operational friction.
@@ -84,12 +84,14 @@ I reviewed host telemetry and discovered the malware making unauthorized changes
 * **Name:** `DisableRealtimeMonitoring`
 * **Value:** `1`
 
-![Sandbox Registry Activity Logs for Sample 4](path/to/sample4_registry_activity_screenshot.png)
+![Sandbox Registry Activity Logs for Sample 4](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_07_58 PM.png)
 
 ### 3. Implementation
 I leveraged the **Sigma Rule Builder** to monitor Sysmon event logs and flag this exact behavior mapping to **MITRE ATT&CK T1562.001** (Impair Defenses: Disable or Modify Tools).
 
-![Sigma Rule Builder Registry Configuration & Validation](path/to/sample4_sigma_rule_screenshot.png)
+![Sigma Rule Builder Registry Configuration & Validation](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_20_19 PM.png)
+
+![Sigma Rule Builder Registry Output](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_17_34 PM.png)
 
 ### 4. The Real-World Lesson
 Detecting host artifacts focuses on the state changes an application leaves on a filesystem or registry, preventing malware from hiding its footprint locally.
@@ -107,12 +109,14 @@ I audited Sysmon network logs over a 12-hour window and identified a clear, auto
 * **Fixed Connection Size:** `97 bytes`
 * **Interval Frequency:** Exactly every 1800 seconds (30 minutes)
 
-![12-Hour Outbound Network Traffic Logs Analysis](path/to/sample5_network_logs_screenshot.png)
+![12-Hour Outbound Network Traffic Logs Analysis](PicoSecure_Threat_Detection/Images/_Untitled - Notepad 6_17_2026 10_11_05 PM.png)
 
 ### 3. Implementation
 I created a behavioral analytics rule under Sysmon Network Connections matching these precise structural parameters, mapping to **MITRE ATT&CK T1071** (Standard Application Layer Protocol).
 
-![Sigma Rule Builder Network Connection Rule Configuration](path/to/sample5_behavioral_rule_screenshot.png)
+![Sigma Rule Builder Network Connection Rule Configuration](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_44_07 PM.png)
+
+![Sigma Rule Builder Network Connection Detail](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_44_39 PM.png)
 
 ### 4. The Real-World Lesson
 At the higher echelons of the Pyramid of Pain, you stop chasing static values (hashes, IPs) and start detecting the fundamental, unavoidable behavior of the attacker's tools.
@@ -128,7 +132,7 @@ The adversary deployed `sample6.exe` with modular backend capabilities, attempti
 Rather than tracking malware code, I audited the human adversary's procedural habits via `commands.log`. Upon gaining remote access, the attacker subconsciously executed an automated sequence of local system discovery commands, appending all outputs to a localized staging file:
 * **Subconscious Signature:** `>> %temp%\exfiltr8.log`
 
-![Adversary Reconnaissance Command Logs Profile](path/to/sample6_command_log_screenshot.png)
+![Adversary Reconnaissance Command Logs Profile](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_47_59 PM.png)
 
 ### 3. Implementation
 I built a process-behavioral rule utilizing the **Sigma Rule Builder** to track Sysmon Event ID 1 (Process Creation):
@@ -136,7 +140,7 @@ I built a process-behavioral rule utilizing the **Sigma Rule Builder** to track 
 * **CommandLine String:** `exfiltr8.log`
 * **MITRE ATT&CK ID:** `T1119` (Automated Collection)
 
-![Final Process Creation Sigma Rule Deployment](path/to/sample6_final_rule_screenshot.png)
+![Final Process Creation Sigma Rule Deployment](PicoSecure_Threat_Detection/Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 10_07_48 PM.png)
 
 ### 4. The Real-World Lesson
 Targeting Tactics, Techniques, and Procedures (TTPs) represents the absolute pinnacle of defense. By engineering a detection rule around the attacker's fundamental operational habits, the entire playbook is burned. The cost and training friction required for the adversary to design entirely new behaviors completely destroys their return on investment (ROI), successfully forcing them off the network.
