@@ -1,4 +1,4 @@
-# PicoSecure Threat Simulation & Detection Lab
+# PicoSecure Threat Simulation and Detection Lab
 
 This repository documents my hands-on experience acting as a Detection Engineer during an iterative threat simulation exercise against an adversary named "Sphinx".
 
