@@ -91,7 +91,7 @@ I leveraged the **Sigma Rule Builder** to monitor Sysmon event logs and flag thi
 
 ![Sigma Rule Builder Registry Configuration & Validation](Images/lab_screenshot_20.png)
 
-![Sigma Rule Builder Registry Output](Images/ip-10-82-95-11 - Amazon DCV - Google Chrome 6_17_2026 9_17_34 PM.png)
+![Sigma Rule Builder Registry Output](Images/lab_screenshot_15.png)
 
 ### 4. The Real-World Lesson
 Detecting host artifacts focuses on the state changes an application leaves on a filesystem or registry, preventing malware from hiding its footprint locally.
