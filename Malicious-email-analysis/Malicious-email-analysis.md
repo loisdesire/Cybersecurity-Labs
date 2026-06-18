@@ -15,7 +15,7 @@ By auditing the top-level metadata and tracking the server hops, I extracted the
 * **X-Originating-IP:** `43.255.56.161`
 
 ![Email 1 Raw Message Source](Images/email1_source.png)
-![Email 1 Raw Message Source](Images/email1_1source.png)
+![Email 1 Raw Message Source](Images/email12source.png)
 
 ---
 
