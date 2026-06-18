@@ -15,7 +15,7 @@ By auditing the top-level metadata and tracking the server hops, I extracted the
 * **X-Originating-IP:** `43.255.56.161`
 
 ![Email 1 Raw Message Source](Images/email1_source.png)
-![Email 1 Raw Message Source](Images/email12source.png)
+![Email 1 Raw Message Source](Images/email12_source.png)
 
 ---
 
@@ -29,7 +29,7 @@ I opened the raw file to inspect the MIME multi-part headers and isolate how the
 * **Content-Type:** `application/pdf`
 * **Attachment Name:** `zmqpalgh.pdf`
 
-![Isolating Base64 Attachment Metadata](Images/email2_attachment_source.png)
+![Isolating Base64 Attachment Metadata](Images/email2_source.png)
 
 ### 3. The Replay
 Because the email client stores this file as a long Base64 string, I extracted the raw data block and ran it through a decoder to rebuild the original physical PDF. 
