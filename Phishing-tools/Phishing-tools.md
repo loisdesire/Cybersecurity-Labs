@@ -1,96 +1,89 @@
-# Phishing Triage & Sandbox Malware Analysis
+# Incident Response: Threat Intelligence & Dynamic Sandbox Analysis
 
-This project walks through my forensic workflow for pulling apart phishing emails and malicious documents. We'll start by looking at how to verify threats using intelligence tools (like Cisco Talos), and then move into a sandbox environment (ANY.RUN) to safely detonate the malware and track its Command-and-Control (C2) infrastructure.
+This repository documents my hands-on analysis of malicious documents and phishing emails using enterprise threat intelligence and dynamic sandboxes. The goal was to move beyond static headers, leverage Cisco Talos for infrastructure profiling, and detonate weaponized payloads in ANY.RUN to extract live Command-and-Control (C2) telemetry.
 
 ---
 
-## Part 1: Threat Intelligence (Cisco Talos)
+## Task 1: Threat Intelligence & Indicator Profiling
+### 1. Overview
+Before interacting with potential malware, an analyst must establish a risk baseline. Threat actors constantly register new, unrated domains to bypass legacy secure email gateways (SEGs) that only block explicitly blacklisted sites. Furthermore, safely hashing a file rather than executing it prevents accidental local infection.
 
-Before touching a suspicious file or clicking a link, you have to know what you are dealing with. Running our initial findings (like domains and file hashes) through a threat intelligence feed keeps us from flying blind.
-
-### 1. Domain Profiling
-Attackers love to use brand-new, unregistered domains. Why? Because legacy web filters usually only block sites that are explicitly flagged as malicious. If a site is unrated, it often slips right through.
+### 2. Analysis
+I used **Cisco Talos** to profile the infrastructure of a suspected campaign and verify the cryptographic signature of a suspicious attachment.
 
 *   **Target Domain:** `malware-test.com`
-*   **Talos Verdict:** `Neutral` (This perfectly highlights why unrated domains are suspicious).
+*   **Talos Verdict (Domain):** `Neutral` (Confirming the attacker's use of unrated infrastructure for evasion).
 
 ![Cisco Talos Domain Lookup](Images/talos_domain_lookup.png)
 
-### 2. File Fingerprinting
-You never want to open a shady file on your actual machine. Instead, the safest route is to generate its unique cryptographic hash and check if global security vendors have already flagged it.
-
-    # Generating a file signature inside a secure Linux environment
-    sha256sum shady_attachment.pdf
-
-*   **Target Hash:** `025ba9ce4a2118a9ca7b115c8869ff73bc16bad3732ba359cef1e60ad8f961f9`
-*   **Talos Verdict:** `Malicious` (Flagged as `Phishing/PDF.Malurl.XG5`).
+*   **Target File Hash (SHA256):** `025ba9ce4a2118a9ca7b115c8869ff73bc16bad3732ba359cef1e60ad8f961f9`
+*   **Talos Verdict (File):** `Malicious` (Identified under the `Phishing/PDF.Malurl.XG5` signature).
 
 ![Cisco Talos Hash Reputation](Images/talos_hash_lookup.png)
 
 ---
 
-## Part 2: SOC Triage Case — The Netflix Spoofer
-
-### 1. The Incident
-A user reported a highly convincing email that looked like a payment error from Netflix. This is standard social engineering: use a trusted brand and create artificial panic to make the user click quickly.
+## Task 2: Dissecting Credential Harvesting (Phish3Case1.eml)
+### 1. Overview
+An end-user escalated an email posing as an urgent Netflix payment error. This scenario leverages brand impersonation and artificial urgency to prompt a quick, panicked user reaction before they inspect the sender details.
 
 ![Case 1 Rendered Email View](Images/case1_rendered_email.png)
 
-### 2. Checking the Headers
-The display name said `Netflix`, but the raw `.eml` source code told the real story. I checked the Mail Transfer Agents (MTAs) to see where the email actually came from:
+### 2. Analysis
+While the visual display name read `Netflix`, extracting the raw `.eml` headers revealed clear alignment mismatches across the Mail Transfer Agents (MTAs). I audited the top-level metadata to map the true delivery path:
 
-*   **True Originating IP:** `209.85.167.226`
+*   **Originating IP:** `209.85.167.226`
 *   **Return-Path:** `etekno.xyz`
-*   **The Catch:** The routing infrastructure showed the email originated from a weird `gogolecloud.com` server and bounced back to `etekno.xyz`. This is a classic spoofing mismatch.
+*   **The Mismatch:** The routing path showed the email originated from an irregular `gogolecloud.com` server and bounced tracking data to `etekno.xyz`—a definitive sign of spoofing.
 
 ![Case 1 Raw Message Headers](Images/case1_headers.png)
 
-### 3. Unmasking the Link
-The "UPDATE ACCOUNT NOW" button was hiding a redirected link: `https://t.co/yuxfZm8KPg?amp=1`. Attackers frequently use legitimate public shorteners (like Twitter's `t.co`) to mask their final payload and trick default email security gateways.
+### 3. Findings
+Inspecting the HTML behind the "UPDATE ACCOUNT NOW" button revealed the attacker's true payload destination. They masked the credential-harvesting site behind a shortened link (`https://t.co/yuxfZm8KPg?amp=1`) to blind default spam filters.
 
 ---
 
-## Part 3: Interactive Sandbox Detonation (ANY.RUN)
-
-When static analysis confirms a file is dangerous, the next step is to safely detonate it inside an isolated sandbox to watch its process tree and network behavior in real time.
-
-### Case A: The Weaponized PDF (`Payment-updateid.pdf`)
-
-PDFs aren't just flat text—they can run scripts and interactive elements. This file was built to quietly force a network connection the second it was opened.
+## Task 3: Dynamic Detonation of Weaponized PDF (Payment-updateid.pdf)
+### 1. Overview
+PDFs can execute embedded scripts and launch external connections. To see exactly what this artifact was engineered to do, I detonated it inside the **ANY.RUN** interactive sandbox to safely monitor its process tree.
 
 ![VirusTotal PDF Hash](Images/pdf_vt_hash.png)
 
-#### What Happened Upon Execution:
-Opening the document launched Adobe Acrobat Reader (`AcroRd32.exe`). However, the parent application immediately spawned background web-browser components (`RdrCEF.exe`) to reach out to the internet.
+### 2. Analysis
+Launching the document opened Adobe Acrobat Reader (`AcroRd32.exe`), which then immediately spawned secondary web-browser components (`RdrCEF.exe`) to force outbound traffic.
 
 ![ANY.RUN PDF Runtime Analysis](Images/pdf_sandbox_analysis.jpg)
 
-*   **Network Anomalies:** The native Windows network process `svchost.exe` triggered a **Potentially Bad Traffic** alert for a `TLS Handshake Failure`. This means the malware was trying to set up a hidden, encrypted tunnel.
-*   **Flagged C2 Destination:** We caught the process making an unauthorized connection to an external server at `185.221.16.143`.
+### 3. Findings (Network Telemetry)
+The sandbox captured the live network indicators as the malware attempted to phone home:
+*   **Anomalous Traffic:** The native Windows networking process (`svchost.exe`) generated a **Potentially Bad Traffic** alert for an `ET INFO TLS Handshake Failure`. This indicates the malware attempted to establish a non-standard, encrypted transport tunnel.
+*   **C2 Connection:** The process successfully established an unauthorized connection to `185.221.16.143`.
 
 ![ANY.RUN PDF Network Connections](Images/pdf_sandbox_network.png)
 
-### Case B: Excel Memory Corruption (`CBJ200620039539.xlsx`)
+---
 
-This attack was much more sophisticated. Instead of tricking the user into clicking a link, the spreadsheet was engineered to exploit a known legacy vulnerability (**CVE-2017-11882**) inside Microsoft Office to completely bypass macro security rules.
+## Task 4: Tracking Memory Corruption Exploits (CBJ200620039539.xlsx)
+### 1. Overview
+This attack bypassed standard macro-based security rules entirely. Instead, the malicious spreadsheet was engineered to exploit a legacy systemic vulnerability (**CVE-2017-11882**) directly within Microsoft Office's memory.
 
 ![ANY.RUN Excel Hash Extraction](Images/excel_sandbox_hashes.png)
 
-#### What Happened Upon Execution:
-The sandbox process tree caught the exact exploitation cycle:
-1.  **The Hijack:** The moment `EXCEL.EXE` opened the file, it reached outside of its normal processes to launch an outdated, vulnerable utility: `EQNEDT32.EXE` (Microsoft Equation Editor).
-2.  **The Exploit:** Because Equation Editor lacks modern memory protections, the payload forced a buffer overflow, took control of the application, and spawned `ntvdm.exe` to execute the actual malware.
+### 2. Analysis
+The sandbox process tree captured the exact chain of exploitation:
+*   **Process Hijack:** Opening the spreadsheet forced `EXCEL.EXE` to launch an outdated, vulnerable background utility: `EQNEDT32.EXE` (Microsoft Equation Editor).
+*   **Execution:** Because Equation Editor lacks modern OS memory protections, the payload successfully triggered a buffer overflow, hijacked the application control flow, and spawned `ntvdm.exe` to execute the core malware.
 
 ![ANY.RUN Excel Process Tree](Images/excel_sandbox_analysis.png)
 
-#### Tracking the Infrastructure:
-Once the malware compromised the system's memory, the hijacked process started firing off DNS queries to connect with its Command & Control (C2) servers:
-*   **Primary C2 Target:** `biz9holdings.com` (Resolved to IP: `204.11.56.48`)
-*   **Secondary Staging Zone:** `findresults.site` (Resolved to IP: `103.224.182.251`)
+### 3. Findings (Infrastructure Mapping)
+Following the memory exploit, the hijacked process initiated real-time DNS queries to connect with the external operational infrastructure. I extracted the primary staging zones:
+*   **Primary C2 Target:** `biz9holdings.com` (Resolved to `204.11.56.48`)
+*   **Secondary Staging:** `findresults.site` (Resolved to `103.224.182.251`)
 
 ![ANY.RUN Excel DNS Telemetry](Images/excel_sandbox_dns.png)
 
 ---
 
-## The Big Takeaway
-Phishing defense requires looking way past the inbox. In modern attacks, threat actors easily bypass macro controls by targeting the host application's memory directly. As an analyst, process monitoring is everything: **if a standard app like Excel suddenly launches an old background tool that immediately tries to connect to the open internet, you are looking at an active exploit.**
+## The Real-World Lesson
+Modern phishing campaigns frequently move past simple credential harvesting and macro-enabled documents, opting instead to target application memory directly. For defenders, robust host process monitoring is critical. When a standard application like Excel spawns an out-of-process legacy tool that immediately initiates outbound web traffic, it is a high-confidence indicator of active exploitation.
