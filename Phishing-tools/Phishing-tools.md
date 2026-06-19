@@ -4,7 +4,7 @@ This repository documents my hands-on analysis of malicious documents and phishi
 
 ---
 
-## Task 1: Threat Intelligence & Indicator Profiling
+## Threat Intelligence and Indicator Profiling
 ### 1. Overview
 Before interacting with potential malware, an analyst must establish a risk baseline. Threat actors constantly register new, unrated domains to bypass legacy secure email gateways (SEGs) that only block explicitly blacklisted sites. Furthermore, safely hashing a file rather than executing it prevents accidental local infection.
 
@@ -23,7 +23,7 @@ I used **Cisco Talos** to profile the infrastructure of a suspected campaign and
 
 ---
 
-## Task 2: Dissecting Credential Harvesting (Phish3Case1.eml)
+## Dissecting Credential Harvesting (Phish3Case1.eml)
 ### 1. Overview
 An end-user escalated an email posing as an urgent Netflix payment error. This scenario leverages brand impersonation and artificial urgency to prompt a quick, panicked user reaction before they inspect the sender details.
 
@@ -43,7 +43,7 @@ Inspecting the HTML behind the "UPDATE ACCOUNT NOW" button revealed the attacker
 
 ---
 
-## Task 3: Dynamic Detonation of Weaponized PDF (Payment-updateid.pdf)
+## Dynamic Detonation of Weaponized PDF (Payment-updateid.pdf)
 ### 1. Overview
 PDFs can execute embedded scripts and launch external connections. To see exactly what this artifact was engineered to do, I detonated it inside the **ANY.RUN** interactive sandbox to safely monitor its process tree.
 
@@ -63,7 +63,7 @@ The sandbox captured the live network indicators as the malware attempted to pho
 
 ---
 
-## Task 4: Tracking Memory Corruption Exploits (CBJ200620039539.xlsx)
+## Tracking Memory Corruption Exploits (CBJ200620039539.xlsx)
 ### 1. Overview
 This attack bypassed standard macro-based security rules entirely. Instead, the malicious spreadsheet was engineered to exploit a legacy systemic vulnerability (**CVE-2017-11882**) directly within Microsoft Office's memory.
 
