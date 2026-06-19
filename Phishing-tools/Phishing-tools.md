@@ -1,4 +1,4 @@
-# Incident Response: Threat Intelligence & Dynamic Sandbox Analysis
+# Incident Response: Threat Intelligence and Dynamic Sandbox Analysis
 
 This repository documents my hands-on analysis of malicious documents and phishing emails using enterprise threat intelligence and dynamic sandboxes. The goal was to move beyond static headers, leverage Cisco Talos for infrastructure profiling, and detonate weaponized payloads in ANY.RUN to extract live Command-and-Control (C2) telemetry.
 
