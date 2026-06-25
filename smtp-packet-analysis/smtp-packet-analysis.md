@@ -1,60 +1,63 @@
-# Packet Analysis & Email Security Lab
-This repository documents my hands-on analysis of network packet captures (`.pcap`) to investigate malicious mail server communications, map adversarial behavior, and extract indicators of compromise (IoCs) using Wireshark. By analyzing SMTP metrics and IMF structural attributes, I isolated specific attack vectors, identified security system bypasses, and mapped out how automated mail payloads function.
+# SMTP Packet Analysis
+
+I analyzed a network packet capture (`.pcap`) in Wireshark to investigate suspicious mail server activity. The goal was to identify blocked delivery attempts, understand why they were blocked, and extract attachment indicators from the traffic.
 
 ---
 
-## Analyzing SMTP Traffic (Response Codes)
+## Task 1: Analyzing SMTP Response Codes
 
 ### 1. The Threat
-The mail server was logging repeated delivery failures and automated filtering blocks, signs of potential spam abuse, misconfigured forwarding, or an active phishing campaign trying to push malicious payloads through the network.
+The mail server logs showed repeated delivery failures and automated blocks, consistent with an active campaign trying to push content through the network.
 
 ### 2. Analysis & Detection Strategy
-I used specific display filters to drill into the SMTP protocol's return codes. Rather than going through the capture packet by packet, I isolated checkpoints in the conversation between mail transfer agents (MTAs) to see exactly where connections succeeded and where external defensive tools rejected the inbound traffic:
+SMTP servers respond to every command with a numeric status code. Rather than reading through every packet individually, I used a Wireshark display filter to isolate only those response codes and read the outcomes of each mail session at a glance.
+
 * **Display Filter:** `smtp.response.code`
-* **Response Code 220 Count:** `19`
-* **Response Code 552 Count:** `6`
+* **Response Code 220 Count:** `19` (successful connection handshakes)
+* **Response Code 552 Count:** `6` (messages blocked for content or attachment violations)
 
-![SMTP Response Code 220 Filter View](Images/smtp_220_filter.png)
+![SMTP Response Code Filter View](Images/smtp_220_filter.png)
 
-### 3. Implementation
-I isolated multiple communication behaviors across the packet capture. First, applying the `smtp.response.code == 220` rule confirmed the server successfully initiated connections 19 times. Shifting focus to perimeter rejections, I uncovered an external threat intelligence block where the server returned a `553` code, dropping the email entirely because the sender's origin reputation was explicitly flagged by a public blocklist.
+### 3. Findings
+The 19 successful `220` handshakes confirmed the server accepted that many inbound connections. Within those sessions, a `553` rejection appeared where an external reputation service blocked an email at the handshake stage, before any content was transmitted, because the sender's IP was listed on a public blocklist.
 
-* **Extracted Spamhaus Error:** `553 5.3.0 Email blocked using spamhaus.org - see <http://www.spamhaus.org> 173.66.46.112`
+* **Block Message:** `553 5.3.0 Email blocked using spamhaus.org - see <http://www.spamhaus.org> 173.66.46.112`
 
-Finally, tracking the `552` status code revealed 6 messages blocked for presenting potential security issues, due to violating content or attachment guidelines. Worth noting: RFC 5321 defines `552` generically as "exceeded storage allocation," but this server reuses the code with custom text for content and attachment enforcement instead. Reading the actual response text mattered more here than the generic code definition.
+The 6 `552` codes indicate messages blocked for content or attachment violations. Note: RFC 5321 defines `552` as "exceeded storage allocation," but this server uses the same code with custom response text for content enforcement. Reading the actual response text mattered more than the code's generic definition.
 
-![Spamhaus Blocked Response Details showing Code 553](Images/spamhaus_block.png)
+![Spamhaus Block Response](Images/spamhaus_block.png)
 
-![Security Issue Content Blocks under Code 552](Images/smtp_552_block.png)
+![Content Block under Code 552](Images/smtp_552_block.png)
 
 ### 4. The Real-World Lesson
-Monitoring edge return codes gives an immediate read on mail network health. Relying only on simple domain blocks doesn't hold up, since attackers spin up new staging infrastructure constantly. Reputation blocks like Spamhaus catch this earlier, rejecting the sender at the initial handshake before a malicious attachment ever reaches an inbox.
+Blocking known-bad domains alone falls short because attackers routinely register new infrastructure with no prior history. Reputation services like Spamhaus address this by flagging the sender's IP at the initial connection, before any payload is transmitted.
 
 ---
 
-## Analyzing SMTP Traffic (Email Content & Attachments)
+## Task 2: Inspecting Email Content and Attachments
 
 ### 1. The Threat
-An adversary initiated an inbound session to deliver a multi-part email payload carrying a hidden, potentially malicious compressed archive designed to run code once extracted.
+One session in the capture delivered a multi-part email carrying a compressed archive, a common way to deliver executable files past basic content filters that only scan plaintext.
 
 ### 2. Analysis & Detection Strategy
-I dropped broad status filters and pivoted to deep content inspection, isolating the full application layer protocol and breaking down individual mail bodies to look for anomalies in encoding mechanisms, embedded attachments, and internal delivery subsystem diagnostics:
+I moved past status code filtering and inspected the full content of individual mail sessions directly, looking for attachment names, encoding methods, and unusual metadata in the message headers.
+
 * **Total SMTP Packets:** `512`
-* **Target Payload Key:** `document.zip`
-* **Failed Routing Footprint:** `212.253.25.152`
-* **Outdated Mail Client Signature:** `Microsoft Outlook Express 6.00.2600.0000`
-* **Encoding Routine:** `base64`
+* **Attachment Found:** `document.zip`
+* **Failed Routing IP:** `212.253.25.152`
+* **Mail Client Header:** `Microsoft Outlook Express 6.00.2600.0000`
+* **Encoding Method:** `base64`
 
-![Packet 270 Analysis covering Undeliverable Mail Subsystem Header](Images/packet_270_undelivered.png)
+![Packet 270 Undeliverable Mail Header](Images/packet_270_undelivered.png)
 
-### 3. Implementation
-I applied a blanket `smtp` filter to see the full scope of the conversation, which exposed 512 packets available for analysis. Drilling into packet `270` exposed an automated bounce message from a mail delivery subsystem, detailing a routing failure because the host at `212.253.25.152` refused to respond. Inspecting the raw MIME headers nested inside that packet revealed a staged attachment string pointing to an archive named `document.zip`.
+### 3. Findings
+Applying a broad `smtp` filter exposed all 512 packets. Drilling into packet `270` revealed an automated bounce notification: the destination host at `212.253.25.152` had refused the connection. The MIME headers inside that packet referenced an attachment named `document.zip`.
 
-To trace parallel activity, I shifted filters to `imf` (Internet Message Format) and searched for specific attachment signatures like `attachment.scr`, found in a separate message. This pulled the `X-Mailer` header, an outdated `Microsoft Outlook Express` signature, on a message using `base64` encoding to hide the executable content inside the transport stream.
+Switching to an `imf` (Internet Message Format) filter and searching for `attachment.scr` found a separate message using `base64` encoding to embed an executable inside the transport stream. The `X-Mailer` header on that message identified the sending client as `Microsoft Outlook Express 6.00.2600.0000`, a version from 2001. Legitimate modern clients do not identify themselves that way, which points to a spoofed or automated sender.
 
-![Packet 270 MIME Part Detail showing Attachment Zip and Base64 Structural Attributes](Images/packet_270_details.png)
+![Packet 270 MIME Detail](Images/packet_270_details.png)
 
-![IMF Filter isolating X-Mailer Metadata and Attachment.scr Client Signature](Images/imf_metadata.png)
+![IMF Filter showing X-Mailer and Attachment.scr](Images/imf_metadata.png)
 
 ### 4. The Real-World Lesson
-Attackers rely on binary-to-text encoding like Base64 to slip malicious binaries past basic network string filters. Catching this requires breaking down application layers and checking metadata like `X-Mailer` headers, since unusual values point to spoofing or legacy software commonly abused during targeted phishing attacks.
+Base64 encoding converts binary files into plain text, which is how executable content can move through systems that only handle text data. Catching it requires inspecting the actual application layer content, not just connection metadata. An outdated or mismatched `X-Mailer` value is a useful secondary signal: it often points to spoofed headers or automated sending tools.

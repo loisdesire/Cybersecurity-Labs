@@ -1,60 +1,63 @@
-# Incident Response: Phishing & Email Forensic Analysis
+# Email Header Analysis
 
-This repository documents my hands-on analysis of malicious email samples using an analyst workstation. The goal was to look past the standard inbox view, dissect raw email headers (`.eml` files), decode hidden attachments, and extract indicators of compromise (IoCs) used in active phishing campaigns.
+Three malicious email samples were analyzed to extract routing indicators and decode hidden attachments. I used Thunderbird's raw message view to access the header data that the standard inbox view hides.
 
 ---
 
-## Dissecting Raw Email Headers (email1.eml)
+## Task 1: Tracing Sender Infrastructure (email1.eml)
 
-### 1. The Anatomy
-When an email hits an inbox, the standard user view hides the technical metadata. To investigate, I analyzed the raw message source in Thunderbird (`Ctrl + U`) to reveal the true delivery path.
+### 1. The Threat
+An email arrived with a suspicious subject line. The sender's display name and claimed origin needed to be verified against the actual delivery path.
 
-### 2. Forensic Discovery
-By auditing the top-level metadata and tracking the server hops, I extracted the primary identification markers:
+### 2. Analysis & Detection Strategy
+The visible sender fields in any email (name, address, subject) are fully controlled by whoever sent it. The actual routing data lives in the raw message headers. I opened the file in Thunderbird using `Ctrl + U` to access those headers and identify where the message truly came from.
+
+### 3. Findings
 * **Full Subject Line:** `Help protect your budget by protecting your home`
 * **X-Originating-IP:** `43.255.56.161`
 
 ![Email 1 Raw Message Source](Images/email1_source.png)
-![Email 1 Raw Message Source](Images/email12_source.png)
+![Email 1 Continued Headers](Images/email12_source.png)
 
 ---
 
-## Reconstructing Base64 Attachments (email2.txt)
+## Task 2: Decoding a Hidden Attachment (email2.txt)
 
-### 1. The Anatomy
-Attackers frequently embed malicious files directly into the raw source text of an email using Base64 encoding. To the naked eye, this looks like a massive block of randomized characters, but it can be reverse-engineered cleanly.
+### 1. The Threat
+The email contained a file attachment embedded directly in the message source using Base64 encoding. Base64 converts binary file data into plain text so it can travel through email systems, which also means it can carry a malicious file disguised as a block of unreadable characters.
 
-### 2. Forensic Discovery
-I opened the raw file to inspect the MIME multi-part headers and isolate how the file was packed:
+### 2. Analysis & Detection Strategy
+I opened the raw file and read the MIME headers to identify the attachment's declared file type and name. The Base64 data block itself appears as a long string of random characters, but the MIME section labels it clearly before it begins.
+
+### 3. Findings
 * **Content-Type:** `application/pdf`
 * **Attachment Name:** `zmqpalgh.pdf`
 
-![Isolating Base64 Attachment Metadata](Images/email2_source.png)
+![Base64 Attachment MIME Headers](Images/email2_source.png)
 
-### 3. The Replay
-Because the email client stores this file as a long Base64 string, I extracted the raw data block and ran it through a decoder to rebuild the original physical PDF. 
-* **Hidden Flag Value:** `THM{BENIGN_PDF_ATTACHMENT}`
+### 4. Decoding
+I extracted the Base64 data block and ran it through a decoder to rebuild the original file.
+* **Recovered Value:** `THM{BENIGN_PDF_ATTACHMENT}`
 
 ---
 
-## Defanging and Triage (email3.eml)
+## Task 3: Mapping a Brand Impersonation Attack (email3.eml)
 
-### 1. The Anatomy
-In this scenario, a reputable organization was actively impersonated using common brand-spoofing techniques designed to create false trust and trick the recipient into a fast reaction.
+### 1. The Threat
+A well-known brand was being impersonated to create a false sense of trust and pressure the recipient into reacting quickly without checking the sender details.
 
-### 2. Safe Analysis Tactics
-Before looking at any external indicators, all malicious links and IP addresses must be **defanged** (e.g., changing `http://` to `hxxp[://]`) so that an analyst cannot accidentally trigger a live connection to an adversary's server during investigation.
+### 2. Analysis & Detection Strategy
+Before analyzing any links or IP addresses from a malicious email, those indicators need to be **defanged**: modified so they cannot accidentally trigger a live connection during investigation. The standard format changes `http://` to `hxxp[://]` and wraps dots in brackets (e.g., `103[.]234[.]236[.]83`). After defanging, I reviewed the authentication and routing headers to map the actual sending infrastructure.
 
-### 3. Forensic Discovery
-I reviewed the authentication and routing headers inside the message source to map the originating infrastructure:
-* **Spoofed Organization:** `PayPal`
-* **Sender Address:** `support@teckbe.com`
-* **Defanged X-Originating-IP:** `103[.]234[.]236[.]83`
-* **Target Mail Server (Authentication-Results):** `atlas102.free.mail.gq1.yahoo.com`
+### 3. Findings
+* **Impersonated Brand:** `PayPal`
+* **True Sender Address:** `support@teckbe.com`
+* **Defanged Originating IP:** `103[.]234[.]236[.]83`
+* **Receiving Mail Server:** `atlas102.free.mail.gq1.yahoo.com`
 
 ![Email 3 Authentication and Routing Headers](Images/email3_source.png)
 
 ---
 
 ## The Real-World Lesson
-Email headers never lie, even when the visual display name does. By verifying the `X-Originating-IP` and cross-referencing the `Authentication-Results` generated by the receiving mail server, you can instantly flag alignment mismatches where the sender's claimed identity doesn't line up with the actual server that pushed the message.
+Email headers are written by mail servers along the delivery path, not by the sender. The display name and sender address in the inbox view are both fully editable by whoever composed the email. Cross-checking the `X-Originating-IP` against the `Authentication-Results` from the receiving server reveals whether the claimed sender identity matches the actual sending infrastructure.
