@@ -4,7 +4,7 @@ This repository documents my hands-on analysis of malicious email samples using 
 
 ---
 
-## Task 1: Dissecting Raw Email Headers (email1.eml)
+## Dissecting Raw Email Headers (email1.eml)
 
 ### 1. The Anatomy
 When an email hits an inbox, the standard user view hides the technical metadata. To investigate, I analyzed the raw message source in Thunderbird (`Ctrl + U`) to reveal the true delivery path.
@@ -19,7 +19,7 @@ By auditing the top-level metadata and tracking the server hops, I extracted the
 
 ---
 
-## Task 2: Reconstructing Base64 Attachments (email2.txt)
+## Reconstructing Base64 Attachments (email2.txt)
 
 ### 1. The Anatomy
 Attackers frequently embed malicious files directly into the raw source text of an email using Base64 encoding. To the naked eye, this looks like a massive block of randomized characters, but it can be reverse-engineered cleanly.
@@ -37,7 +37,7 @@ Because the email client stores this file as a long Base64 string, I extracted t
 
 ---
 
-## Task 3: Defanging & Triage (email3.eml)
+## Defanging and Triage (email3.eml)
 
 ### 1. The Anatomy
 In this scenario, a reputable organization was actively impersonated using common brand-spoofing techniques designed to create false trust and trick the recipient into a fast reaction.
